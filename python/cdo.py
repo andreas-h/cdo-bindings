@@ -40,6 +40,18 @@ def auto_doc(tool, cdo_self):
         return func
     return desc
 
+def getCdoLinesep(path2cdo,verbose=False):
+    proc = subprocess.Popen([path2cdo,'-V'],stderr = subprocess.PIPE,stdout = subprocess.PIPE)
+    ret  = proc.communicate()
+    cdo_ver   = ret[1].decode("utf-8")
+    if cdo_ver.find(os.linesep) > -1:
+        return os.linesep
+    elif cdo_ver.find('\n') > -1:
+        # needed for cygwin. in cygwin cdo.exe, linesep is \n but os.linesep on windows is \r\n
+        return '\n'
+    else:
+        raise ValueError("Cannot determine line separator")
+
 def getCdoVersion(path2cdo,verbose=False):
     proc = subprocess.Popen([path2cdo,'-V'],stderr = subprocess.PIPE,stdout = subprocess.PIPE)
     ret  = proc.communicate()
@@ -94,6 +106,7 @@ class Cdo(object):
     else:
       self.CDO = 'cdo'
 
+    self.linesep                = getCdoLinesep(self.CDO)
     self.operators              = self.getOperators()
     self.returnCdf              = returnCdf
     self.returnNoneOnError      = returnNoneOnError
@@ -123,7 +136,7 @@ class Cdo(object):
     env.update(envOfCall)
 
     proc = subprocess.Popen(' '.join(cmd),
-                            shell  = True,
+                            #shell  = True,
                             stderr = subprocess.PIPE,
                             stdout = subprocess.PIPE,
                             env    = env)
@@ -224,7 +237,7 @@ class Cdo(object):
       if operatorPrintsOut:
         retvals = self.call(cmd,envOfCall)
         if ( not self.hasError(method_name,cmd,retvals) ):
-          r = list(map(strip,retvals["stdout"].split(os.linesep)))
+          r = list(map(strip,retvals["stdout"].split(self.linesep)))
           if "autoSplit" in kwargs:
             splitString = kwargs["autoSplit"]
             _output = [x.split(splitString) for x in r[:len(r)-1]]
@@ -302,7 +315,7 @@ class Cdo(object):
     if (parse_version(getCdoVersion(self.CDO)) > parse_version('1.7.0')):
         proc = subprocess.Popen([self.CDO,'--operators'],stderr = subprocess.PIPE,stdout = subprocess.PIPE)
         ret  = proc.communicate()
-        ops  = list(map(lambda x : x.split(' ')[0], ret[0].decode("utf-8")[0:-1].split(os.linesep)))
+        ops  = list(map(lambda x : x.split(' ')[0], ret[0].decode("utf-8")[0:-1].split(self.linesep)))
 
         return ops
 
@@ -310,7 +323,7 @@ class Cdo(object):
         proc = subprocess.Popen([self.CDO,'-h'],stderr = subprocess.PIPE,stdout = subprocess.PIPE)
         ret  = proc.communicate()
         l    = ret[1].decode("utf-8").find("Operators:")
-        ops  = ret[1].decode("utf-8")[l:-1].split(os.linesep)[1:-1]
+        ops  = ret[1].decode("utf-8")[l:-1].split(self.linesep)[1:-1]
         endI = ops.index('')
         s    = ' '.join(ops[:endI]).strip()
         s    = re.sub("\s+" , " ", s)
@@ -323,7 +336,7 @@ class Cdo(object):
             parse_version(getCdoVersion(self.CDO)) < parse_version('1.9.0') ):
       proc = subprocess.Popen([self.CDO,'--operators_no_output'],stderr = subprocess.PIPE,stdout = subprocess.PIPE)
       ret  = proc.communicate()
-      return list(map(lambda x : x.split(' ')[0], ret[0].decode("utf-8")[0:-1].split(os.linesep)))
+      return list(map(lambda x : x.split(' ')[0], ret[0].decode("utf-8")[0:-1].split(self.linesep)))
     else:
       return ['cdiread','cmor','codetab','conv_cmor_table','diff','diffc','diffn','diffp'
               ,'diffv','dump_cmor_table','dumpmap','filedes','ggstat','ggstats','gmtcells'
@@ -360,7 +373,7 @@ class Cdo(object):
 
   def getSupportedLibs(self,force=False):
     proc = subprocess.Popen(self.CDO + ' -V',
-        shell  = True,
+        #shell  = True,
         stderr = subprocess.PIPE,
         stdout = subprocess.PIPE)
     retvals = proc.communicate()
@@ -422,7 +435,7 @@ class Cdo(object):
     if (self.hasCdo()):
       call = [self.CDO,' -V']
       proc = subprocess.Popen(' '.join(call),
-          shell  = True,
+          #shell  = True,
           stderr = subprocess.PIPE,
           stdout = subprocess.PIPE)
       retvals = proc.communicate()
